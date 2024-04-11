@@ -1,3 +1,5 @@
+//Lukas Siemers
+//CSC 386
 package filesystem
 
 import (
@@ -7,7 +9,6 @@ import (
 	"log"
 	"time"
 )
-
 // Constants for filesystem parameters
 const (
 	BlockSize   = 1024
@@ -158,7 +159,7 @@ func writeBitmapToDisk(blockIndex int, bitmap []bool) {
 
 // Conversion functions between boolean arrays and byte slices for bitmap storage
 
-func boolsToBytes(t []bool) []byte { //Thomas Provided this one
+func boolsToBytes(t []bool) []byte { 				//Thomas Provided this one
 	b := make([]byte, (len(t)+7)/8)
 	for i, x := range t {
 		if x {
@@ -168,7 +169,7 @@ func boolsToBytes(t []bool) []byte { //Thomas Provided this one
 	return b
 }
 
-func bytesToBools(b []byte) []bool { //Thomas Provided this one
+func bytesToBools(b []byte) []bool { 				//Thomas Provided this one
 	t := make([]bool, 8*len(b))
 	for i, x := range b {
 		for j := 0; j < 8; j++ {
@@ -187,7 +188,9 @@ func ReadSuperblock() superblock {
 	decoder := gob.NewDecoder(reader)
 	if err := decoder.Decode(&sb); err != nil {
 		log.Fatalf("Failed to read superblock: %v", err)
+		return superblock{}
 	}
+	log.Printf("Successfully read superblock: %+v", sb)
 	return sb
 }
 
@@ -308,20 +311,14 @@ func WriteNodeArray(nodes [MaxInodes]Node) {
 		// Copy the slice of the encoded node array to the appropriate block on the disk
 		copy(Disk[blockIndex][:], data[start:end])
 	}
-
-	// Optionally, update global variables related to the node storage, if any.
-	// For instance, you might want to update EndOfNodes to reflect the new size of the node data on disk.
 	EndOfNodes = len(data)
 }
 
 func UpdateBlockMap(blocks []bool) {
 	// First, convert the slice of booleans to a slice of bytes
 	bitmapBytes := boolsToBytes(blocks)
-
 	// Read the metadata to find where the block bitmap is stored
 	meta := ReadSuperblock()
-
-	// Assuming the block bitmap is stored at a fixed location specified in the metadata
 	blockBitmapStart := meta.BitmapStart
 
 	// Ensure we're not trying to write beyond the disk size
@@ -334,7 +331,6 @@ func UpdateBlockMap(blocks []bool) {
 		Disk[blockBitmapStart+i][0] = byteVal
 	}
 
-	// Update global variables if necessary. For example, if you keep track of the end of the block bitmap
 	EndOfBlockMap = blockBitmapStart + len(bitmapBytes) - 1
 }
 
@@ -358,7 +354,6 @@ func UpdateNodeMap(nodes []bool) {
 		Disk[nodeBitmapStart+i][0] = byteVal
 	}
 
-	// Update global variables if necessary. For example, if you keep track of the end of the node bitmap
 	EndOfNodeMap = nodeBitmapStart + len(bitmapBytes) - 1
 }
 
@@ -388,9 +383,6 @@ func AddDir(d Folder, blocks [4]int) {
 
 		// Copy the data slice into the virtual disk block
 		copy(Disk[blockIndex][:], data[dataIndex:end])
-
-		// Update dataIndex to reflect the amount of data written
-
 	}
 }
 func ReadFile(node Node) File {
@@ -406,7 +398,6 @@ func ReadFile(node Node) File {
 		// Append the data from the current block to the overall data slice
 		data = append(data, Disk[blockIndex][:]...)
 	}
-
 	// Now decode the concatenated data into a File struct
 	decoder := gob.NewDecoder(bytes.NewReader(data))
 	if err := decoder.Decode(&file); err != nil {
@@ -428,7 +419,6 @@ func CheckDirectoryForFile(inode Node, filename string) (bool, File) {
 	}
 	return false, File{}
 }
-
 func AllocateBlock() int {
 	// Iterate over the BlockMap to find a free block (false indicates free)
 	for i, used := range BlockMap {
@@ -440,7 +430,6 @@ func AllocateBlock() int {
 	}
 	return -1 // Indicate failure to allocate block
 }
-
 func WriteFile(f File, node Node) Node {
 	// Encode the file to a byte slice using gob
 	var buf bytes.Buffer
@@ -449,7 +438,6 @@ func WriteFile(f File, node Node) Node {
 		log.Fatalf("Error encoding file: %v", err)
 	}
 	data := buf.Bytes()
-
 	// Calculate the number of blocks needed to store the file data
 	numBlocksNeeded := (len(data) + BlockSize - 1) / BlockSize
 
@@ -475,21 +463,17 @@ func WriteFile(f File, node Node) Node {
 				log.Fatalf("File exceeds maximum block allocation")
 			}
 		}
-
 		// Calculate how much data to write to the current block
 		end := dataIndex + BlockSize
 		if end > len(data) {
 			end = len(data)
 		}
-
 		// Write the slice of the encoded file to the disk block
 		copy(Disk[blockIndex][:], data[dataIndex:end])
-
 		// Update our tracking variables
 		dataIndex = end
 		blocksUsed++
 	}
-
 	// Return the updated node with potentially new blocks allocated
 	return node
 }
@@ -525,7 +509,6 @@ func CreateNewFile(filename string, parentDirectoryNodeID int) {
 		Modified:  time.Now(),
 		ID:        newNodeID,
 	}
-
 	// Update the parent directory node to include this new file
 	parentDir.Children = append(parentDir.Children, newNodeID)
 	parentDir.Names = append(parentDir.Names, filename)
@@ -607,7 +590,6 @@ func AllocateNode() int {
 func FindFileNode(filename string, directoryNodeID int) (Node, bool) {
 	// First, read the directory's content based on the provided directoryNodeID
 	directory := ReadDirFromNodeID(directoryNodeID)
-
 	// Iterate through the directory's file names to find a match for the filename
 	for index, name := range directory.Names {
 		if name == filename {
@@ -621,7 +603,6 @@ func FindFileNode(filename string, directoryNodeID int) (Node, bool) {
 			}
 		}
 	}
-
 	// If no matching filename is found in the directory, return an empty Node struct and false
 	return Node{}, false
 }
@@ -641,9 +622,7 @@ func WriteToFile(fileNode Node, data string) {
 		}
 		fileNode.Blocks = append(fileNode.Blocks, newBlock+superBlock.BlockStart) // Adjust based on your block allocation strategy
 	}
-
 	// Write data to blocks
-
 	currentByteIndex := 0
 	for i := 0; i < totalBlocksNeeded; i++ {
 		blockIndex := fileNode.Blocks[i]
@@ -673,11 +652,8 @@ func ReadFromFile(fileNode Node) string {
 		if blockIndex == 0 {
 			break // Reached the end of the allocated blocks for this file
 		}
-		// Append the data from the block to the fileData slice
-		// Assuming Disk is a global array representing the disk blocks
 		fileData = append(fileData, Disk[blockIndex][:]...)
 	}
-
 	// If the file's actual data is smaller than the allocated blocks
 	nulIndex := bytes.IndexByte(fileData, 0)
 	if nulIndex != -1 {
@@ -714,7 +690,6 @@ func AppendToFile(fileNode Node, data string) {
 			fileNode.Blocks = append(fileNode.Blocks, newBlock+superBlock.BlockStart) // Adjust based on your block allocation strategy
 		}
 	}
-
 	// Append data to the last block of the file, or new blocks if allocated
 	lastBlockIndex := fileNode.Blocks[len(fileNode.Blocks)-1]
 	// Assuming Disk is a global array representing the disk blocks
@@ -744,7 +719,6 @@ func AppendToFile(fileNode Node, data string) {
 			}
 		}
 	}
-
 	// Update the file node's modification time
 	fileNode.Modified = time.Now()
 
@@ -753,9 +727,7 @@ func AppendToFile(fileNode Node, data string) {
 
 	log.Printf("Data appended to file node ID %d\n", fileNode.ID)
 }
-
 func Open(mode string, filename string, searchnode int) {
-
 	if mode == "open" {
 		inodes := ReadNodeArray()
 		var found bool
@@ -773,7 +745,6 @@ func Open(mode string, filename string, searchnode int) {
 			fmt.Println("File opened:", filename)
 		}
 	}
-
 	if mode == "write" {
 		// Assuming a function that finds the file's node based on filename and directory node ID
 		// Find or create the file node
@@ -787,32 +758,35 @@ func Open(mode string, filename string, searchnode int) {
 				return
 			}
 		}
-
+		// Ask user for data to write
+		var dataToWrite string
+		fmt.Println("Enter data to write to the file:")
+		if _, err := fmt.Scanln(&dataToWrite); err != nil {
+			log.Printf("Error reading input: %v\n", err)
+			return
+		}
 		// Write data to the file
 		fmt.Println("Writing to file:", filename)
-		WriteToFile(fileNode) // Assumes WriteToFile handles block allocation
+		WriteToFile(fileNode, dataToWrite) // Update to pass dataToWrite
 	}
 	if mode == "read" {
 		inodes := ReadNodeArray() // Assume this returns all inodes in the filesystem
 		var fileFound bool
 		var fileContent string
-		var fileNode Node // Assuming a struct that represents a file node
-
+		var file File // Use File instead of Node
 		// Search for the file in the specified directory inode
 		for _, inode := range inodes {
-			if inode.ID == searchNode && inode.Valid {
-				found, tmpNode := CheckDirectoryForFile(inode, filename) // Assuming this returns bool and Node
+			if inode.ID == searchnode && inode.Valid {
+				found, tmpFile := CheckDirectoryForFile(inode, filename) // Keep it as File
 				if found {
-					fileNode = tmpNode
+					file = tmpFile
 					fileFound = true
 					break
 				}
 			}
 		}
-
 		if fileFound {
-			// Read the file content
-			fileContent = ReadFromFile(fileNode) // Assumes ReadFromFile returns the content of the file as a string
+			fileContent = file.Content // Assuming File has a Content field with data as string
 			fmt.Println("File content:", fileContent)
 		} else {
 			fmt.Println("File not found:", filename)
